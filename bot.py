@@ -1,7 +1,6 @@
 import os
 import hashlib
 import requests
-
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -9,13 +8,11 @@ app = Flask(__name__)
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL")
 API_SECRET = os.environ.get("API_SECRET")
-
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 login_state = {}
 pending_username = {}
 logged_users = {}
-
 user_creation_state = {}
 new_user_data = {}
 
@@ -44,17 +41,10 @@ def send_message(chat_id, text, keyboard=None, remove_keyboard=False):
             json=payload,
             timeout=20
         )
-
-        print(
-            "Telegram send status:",
-            response.status_code
-        )
+        print("Telegram send status:", response.status_code)
 
     except Exception as error:
-        print(
-            "Telegram send error:",
-            repr(error)
-        )
+        print("Telegram send error:", repr(error))
 
 
 def get_user_by_username(username):
@@ -80,39 +70,30 @@ def get_user_by_username(username):
         return data.get("user")
 
     except Exception as error:
-        print(
-            "Apps Script get user error:",
-            repr(error)
-        )
-
+        print("Apps Script get user error:", repr(error))
         return None
 
 
 def add_user_to_sheet(user_data):
     try:
-        payload = {
-            "secret": API_SECRET,
-            "action": "addUser",
-            "username": user_data.get("username"),
-            "passwordHash": user_data.get("passwordHash"),
-            "role": user_data.get("role"),
-            "fullName": user_data.get("fullName"),
-            "bakeryId": user_data.get("bakeryId", "")
-        }
-
         response = requests.post(
             APPS_SCRIPT_URL,
-            json=payload,
+            json={
+                "secret": API_SECRET,
+                "action": "addUser",
+                "username": user_data.get("username"),
+                "passwordHash": user_data.get("passwordHash"),
+                "role": user_data.get("role"),
+                "fullName": user_data.get("fullName"),
+                "bakeryId": user_data.get("bakeryId", "")
+            },
             timeout=60
         )
 
         return response.json()
 
     except Exception as error:
-        print(
-            "Apps Script add user error:",
-            repr(error)
-        )
+        print("Apps Script add user error:", repr(error))
 
         return {
             "ok": False,
@@ -137,14 +118,8 @@ def role_arabic(role):
         "ASSOCIATION": "الجمعية"
     }
 
-    key = str(
-        role or ""
-    ).strip().upper()
-
-    return roles.get(
-        key,
-        role
-    )
+    key = str(role or "").strip().upper()
+    return roles.get(key, role)
 
 
 def role_from_arabic(text):
@@ -166,8 +141,7 @@ def role_from_arabic(text):
 def show_welcome(chat_id):
     send_message(
         chat_id,
-        "أهلاً بك في نظام إدارة الأفران\n\n"
-        "يرجى تسجيل الدخول للمتابعة.",
+        "أهلاً بك في نظام إدارة الأفران\n\nيرجى تسجيل الدخول للمتابعة.",
         [
             ["تسجيل الدخول"]
         ]
@@ -196,9 +170,7 @@ def show_main_menu(chat_id, user):
     )
 
     if bakery_id:
-        text += (
-            f"\nرقم الفرن: {bakery_id}"
-        )
+        text += f"\nرقم الفرن: {bakery_id}"
 
     if role == "CREATOR":
         keyboard = [
@@ -249,12 +221,283 @@ def cancel_user_creation(chat_id):
     )
 
 
+def start_user_creation(chat_id):
+    new_user_data[
+        chat_id
+    ] = {}
+
+    user_creation_state[
+        chat_id
+    ] = "WAITING_FULL_NAME"
+
+    send_message(
+        chat_id,
+        "أدخل الاسم الكامل للمستخدم:",
+        [
+            ["إلغاء"]
+        ]
+    )
+
+
+def send_creation_confirmation(chat_id):
+    data = new_user_data.get(
+        chat_id,
+        {}
+    )
+
+    text = (
+        "تأكيد إضافة المستخدم\n\n"
+        f"الاسم: {data.get('fullName', '')}\n"
+        f"اسم المستخدم: {data.get('username', '')}\n"
+        f"الصلاحية: {role_arabic(data.get('role', ''))}"
+    )
+
+    bakery_id = data.get(
+        "bakeryId",
+        ""
+    )
+
+    if bakery_id:
+        text += f"\nرقم الفرن: {bakery_id}"
+
+    send_message(
+        chat_id,
+        text,
+        [
+            ["تأكيد الإضافة"],
+            ["إلغاء"]
+        ]
+    )
+
+
+def continue_user_creation(chat_id, text):
+    state = user_creation_state.get(
+        chat_id
+    )
+
+    if text == "إلغاء":
+        cancel_user_creation(
+            chat_id
+        )
+
+        show_users_menu(
+            chat_id
+        )
+
+        return True
+
+    if state == "WAITING_FULL_NAME":
+        new_user_data[
+            chat_id
+        ]["fullName"] = text
+
+        user_creation_state[
+            chat_id
+        ] = "WAITING_NEW_USERNAME"
+
+        send_message(
+            chat_id,
+            "أدخل اسم المستخدم الجديد:",
+            [
+                ["إلغاء"]
+            ]
+        )
+
+        return True
+
+    if state == "WAITING_NEW_USERNAME":
+        existing = get_user_by_username(
+            text
+        )
+
+        if existing:
+            send_message(
+                chat_id,
+                "اسم المستخدم مستخدم مسبقاً.\nأدخل اسماً آخر:"
+            )
+
+            return True
+
+        new_user_data[
+            chat_id
+        ]["username"] = text
+
+        user_creation_state[
+            chat_id
+        ] = "WAITING_NEW_PASSWORD"
+
+        send_message(
+            chat_id,
+            "أدخل كلمة المرور للمستخدم الجديد:",
+            [
+                ["إلغاء"]
+            ]
+        )
+
+        return True
+
+    if state == "WAITING_NEW_PASSWORD":
+        if len(text) < 4:
+            send_message(
+                chat_id,
+                "كلمة المرور يجب أن تكون 4 محارف على الأقل.\n"
+                "أدخل كلمة مرور جديدة:"
+            )
+
+            return True
+
+        new_user_data[
+            chat_id
+        ]["passwordHash"] = hash_password(
+            text
+        )
+
+        user_creation_state[
+            chat_id
+        ] = "WAITING_ROLE"
+
+        send_message(
+            chat_id,
+            "اختر صلاحية المستخدم:",
+            [
+                ["المشرف", "مدير التجارة"],
+                ["المفتش", "الديوان"],
+                ["صاحب الفرن", "الجمعية"],
+                ["المنشئ"],
+                ["إلغاء"]
+            ]
+        )
+
+        return True
+
+    if state == "WAITING_ROLE":
+        selected_role = role_from_arabic(
+            text
+        )
+
+        if not selected_role:
+            send_message(
+                chat_id,
+                "اختر الصلاحية من الأزرار."
+            )
+
+            return True
+
+        new_user_data[
+            chat_id
+        ]["role"] = selected_role
+
+        if selected_role == "BAKERY":
+            user_creation_state[
+                chat_id
+            ] = "WAITING_BAKERY_ID"
+
+            send_message(
+                chat_id,
+                "أدخل رقم الفرن:",
+                [
+                    ["إلغاء"]
+                ]
+            )
+
+            return True
+
+        new_user_data[
+            chat_id
+        ]["bakeryId"] = ""
+
+        user_creation_state[
+            chat_id
+        ] = "WAITING_CONFIRMATION"
+
+        send_creation_confirmation(
+            chat_id
+        )
+
+        return True
+
+    if state == "WAITING_BAKERY_ID":
+        new_user_data[
+            chat_id
+        ]["bakeryId"] = text
+
+        user_creation_state[
+            chat_id
+        ] = "WAITING_CONFIRMATION"
+
+        send_creation_confirmation(
+            chat_id
+        )
+
+        return True
+
+    if state == "WAITING_CONFIRMATION":
+        if text != "تأكيد الإضافة":
+            send_message(
+                chat_id,
+                "اختر تأكيد الإضافة أو إلغاء."
+            )
+
+            return True
+
+        result = add_user_to_sheet(
+            new_user_data.get(
+                chat_id,
+                {}
+            )
+        )
+
+        if result.get("ok"):
+            user_id = result.get(
+                "userId",
+                ""
+            )
+
+            cancel_user_creation(
+                chat_id
+            )
+
+            send_message(
+                chat_id,
+                f"تمت إضافة المستخدم بنجاح.\nرقم المستخدم: {user_id}"
+            )
+
+            show_users_menu(
+                chat_id
+            )
+
+            return True
+
+        error = result.get(
+            "error",
+            "UNKNOWN_ERROR"
+        )
+
+        error_messages = {
+            "USERNAME_EXISTS": "اسم المستخدم موجود مسبقاً.",
+            "BAKERY_ID_REQUIRED": "رقم الفرن مطلوب.",
+            "CONNECTION_ERROR": "تعذر الاتصال بقاعدة البيانات.",
+            "MISSING_FIELDS": "هناك بيانات ناقصة.",
+            "INVALID_ROLE": "الصلاحية غير صحيحة."
+        }
+
+        send_message(
+            chat_id,
+            "تعذر إضافة المستخدم.\n"
+            + error_messages.get(
+                error,
+                f"الخطأ: {error}"
+            )
+        )
+
+        return True
+
+    return False
+
+
 @app.route("/", methods=["GET"])
 def home():
-    return (
-        "Bakery Management Bot is running",
-        200
-    )
+    return "Bakery Management Bot is running", 200
 
 
 @app.route("/webhook", methods=["POST"])
@@ -402,8 +645,7 @@ def webhook():
 
                 send_message(
                     chat_id,
-                    "هذا الحساب غير فعال. "
-                    "يرجى مراجعة إدارة النظام."
+                    "هذا الحساب غير فعال. يرجى مراجعة إدارة النظام."
                 )
 
                 return "OK", 200
@@ -432,6 +674,11 @@ def webhook():
 
             if not username:
                 login_state.pop(
+                    chat_id,
+                    None
+                )
+
+                pending_username.pop(
                     chat_id,
                     None
                 )
@@ -515,269 +762,15 @@ def webhook():
 
             return "OK", 200
 
-        creation_state = user_creation_state.get(
+        if user_creation_state.get(
             chat_id
-        )
+        ):
+            handled = continue_user_creation(
+                chat_id,
+                text
+            )
 
-        if creation_state:
-            if text == "إلغاء":
-                cancel_user_creation(
-                    chat_id
-                )
-
-                show_users_menu(
-                    chat_id
-                )
-
-                return "OK", 200
-
-            if creation_state == "WAITING_FULL_NAME":
-                new_user_data[
-                    chat_id
-                ]["fullName"] = text
-
-                user_creation_state[
-                    chat_id
-                ] = "WAITING_NEW_USERNAME"
-
-                send_message(
-                    chat_id,
-                    "أدخل اسم المستخدم الجديد:",
-                    [
-                        ["إلغاء"]
-                    ]
-                )
-
-                return "OK", 200
-
-            if creation_state == "WAITING_NEW_USERNAME":
-                existing = get_user_by_username(
-                    text
-                )
-
-                if existing:
-                    send_message(
-                        chat_id,
-                        "اسم المستخدم مستخدم مسبقاً.\n"
-                        "أدخل اسماً آخر:"
-                    )
-
-                    return "OK", 200
-
-                new_user_data[
-                    chat_id
-                ]["username"] = text
-
-                user_creation_state[
-                    chat_id
-                ] = "WAITING_NEW_PASSWORD"
-
-                send_message(
-                    chat_id,
-                    "أدخل كلمة المرور للمستخدم الجديد:",
-                    [
-                        ["إلغاء"]
-                    ]
-                )
-
-                return "OK", 200
-
-            if creation_state == "WAITING_NEW_PASSWORD":
-                if len(text) < 4:
-                    send_message(
-                        chat_id,
-                        "كلمة المرور يجب أن تكون "
-                        "4 محارف على الأقل.\n"
-                        "أدخل كلمة مرور جديدة:"
-                    )
-
-                    return "OK", 200
-
-                new_user_data[
-                    chat_id
-                ]["passwordHash"] = hash_password(
-                    text
-                )
-
-                user_creation_state[
-                    chat_id
-                ] = "WAITING_ROLE"
-
-                send_message(
-                    chat_id,
-                    "اختر صلاحية المستخدم:",
-                    [
-                        ["المشرف", "مدير التجارة"],
-                        ["المفتش", "الديوان"],
-                        ["صاحب الفرن", "الجمعية"],
-                        ["المنشئ"],
-                        ["إلغاء"]
-                    ]
-                )
-
-                return "OK", 200
-
-            if creation_state == "WAITING_ROLE":
-                selected_role = role_from_arabic(
-                    text
-                )
-
-                if not selected_role:
-                    send_message(
-                        chat_id,
-                        "اختر الصلاحية من الأزرار."
-                    )
-
-                    return "OK", 200
-
-                new_user_data[
-                    chat_id
-                ]["role"] = selected_role
-
-                if selected_role == "BAKERY":
-                    user_creation_state[
-                        chat_id
-                    ] = "WAITING_BAKERY_ID"
-
-                    send_message(
-                        chat_id,
-                        "أدخل رقم الفرن:",
-                        [
-                            ["إلغاء"]
-                        ]
-                    )
-
-                    return "OK", 200
-
-                new_user_data[
-                    chat_id
-                ]["bakeryId"] = ""
-
-                user_creation_state[
-                    chat_id
-                ] = "WAITING_CONFIRMATION"
-
-                data = new_user_data[
-                    chat_id
-                ]
-
-                send_message(
-                    chat_id,
-                    "تأكيد إضافة المستخدم\n\n"
-                    f"الاسم: {data['fullName']}\n"
-                    f"اسم المستخدم: {data['username']}\n"
-                    f"الصلاحية: "
-                    f"{role_arabic(data['role'])}",
-                    [
-                        ["تأكيد الإضافة"],
-                        ["إلغاء"]
-                    ]
-                )
-
-                return "OK", 200
-
-            if creation_state == "WAITING_BAKERY_ID":
-                new_user_data[
-                    chat_id
-                ]["bakeryId"] = text
-
-                user_creation_state[
-                    chat_id
-                ] = "WAITING_CONFIRMATION"
-
-                data = new_user_data[
-                    chat_id
-                ]
-
-                send_message(
-                    chat_id,
-                    "تأكيد إضافة المستخدم\n\n"
-                    f"الاسم: {data['fullName']}\n"
-                    f"اسم المستخدم: {data['username']}\n"
-                    f"الصلاحية: "
-                    f"{role_arabic(data['role'])}\n"
-                    f"رقم الفرن: {data['bakeryId']}",
-                    [
-                        ["تأكيد الإضافة"],
-                        ["إلغاء"]
-                    ]
-                )
-
-                return "OK", 200
-
-            if creation_state == "WAITING_CONFIRMATION":
-                if text != "تأكيد الإضافة":
-                    send_message(
-                        chat_id,
-                        "اختر تأكيد الإضافة أو إلغاء."
-                    )
-
-                    return "OK", 200
-
-                data = new_user_data.get(
-                    chat_id,
-                    {}
-                )
-
-                result = add_user_to_sheet(
-                    data
-                )
-
-                if result.get("ok"):
-                    user_id = result.get(
-                        "userId",
-                        ""
-                    )
-
-                    cancel_user_creation(
-                        chat_id
-                    )
-
-                    send_message(
-                        chat_id,
-                        "تمت إضافة المستخدم بنجاح.\n"
-                        f"رقم المستخدم: {user_id}"
-                    )
-
-                    show_users_menu(
-                        chat_id
-                    )
-
-                    return "OK", 200
-
-                error = result.get(
-                    "error",
-                    "UNKNOWN_ERROR"
-                )
-
-                if error == "USERNAME_EXISTS":
-                    message_text = (
-                        "تعذر الإضافة: "
-                        "اسم المستخدم موجود مسبقاً."
-                    )
-
-                elif error == "BAKERY_ID_REQUIRED":
-                    message_text = (
-                        "تعذر الإضافة: "
-                        "رقم الفرن مطلوب."
-                    )
-
-                elif error == "CONNECTION_ERROR":
-                    message_text = (
-                        "تعذر الاتصال بقاعدة البيانات."
-                    )
-
-                else:
-                    message_text = (
-                        "تعذر إضافة المستخدم.\n"
-                        f"الخطأ: {error}"
-                    )
-
-                send_message(
-                    chat_id,
-                    message_text
-                )
-
+            if handled:
                 return "OK", 200
 
         if text == "القائمة الرئيسية":
@@ -830,20 +823,8 @@ def webhook():
 
                 return "OK", 200
 
-            new_user_data[
+            start_user_creation(
                 chat_id
-            ] = {}
-
-            user_creation_state[
-                chat_id
-            ] = "WAITING_FULL_NAME"
-
-            send_message(
-                chat_id,
-                "أدخل الاسم الكامل للمستخدم:",
-                [
-                    ["إلغاء"]
-                ]
             )
 
             return "OK", 200
@@ -851,8 +832,7 @@ def webhook():
         if text == "عرض المستخدمين":
             send_message(
                 chat_id,
-                "وظيفة عرض المستخدمين "
-                "سنبرمجها بعد إنهاء الإضافة."
+                "وظيفة عرض المستخدمين سنبرمجها بعد إنهاء الإضافة."
             )
 
             return "OK", 200
@@ -860,8 +840,7 @@ def webhook():
         if text == "تفعيل/تعطيل مستخدم":
             send_message(
                 chat_id,
-                "وظيفة تفعيل وتعطيل المستخدم "
-                "سنبرمجها بعد إنهاء الإضافة."
+                "وظيفة تفعيل وتعطيل المستخدم سنبرمجها بعد إنهاء الإضافة."
             )
 
             return "OK", 200
@@ -884,3 +863,61 @@ def webhook():
 
         if text == "الأعطال":
             send_message(
+                chat_id,
+                "نظام الأعطال قيد الإعداد."
+            )
+
+            return "OK", 200
+
+        if text == "التقارير":
+            send_message(
+                chat_id,
+                "نظام التقارير قيد الإعداد."
+            )
+
+            return "OK", 200
+
+        if text == "إعدادات النظام":
+            send_message(
+                chat_id,
+                "إعدادات النظام قيد الإعداد."
+            )
+
+            return "OK", 200
+
+        if text == "مسح البيانات":
+            send_message(
+                chat_id,
+                "مسح البيانات غير مفعّل بعد وسيتم حمايته بتأكيد مزدوج."
+            )
+
+            return "OK", 200
+
+        send_message(
+            chat_id,
+            "هذا الخيار غير مضاف بعد."
+        )
+
+        return "OK", 200
+
+    except Exception as error:
+        print(
+            "WEBHOOK ERROR:",
+            repr(error)
+        )
+
+        return "OK", 200
+
+
+if __name__ == "__main__":
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
