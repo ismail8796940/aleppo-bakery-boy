@@ -830,12 +830,6 @@ def webhook():
             return "OK", 200
 
         if text == "عرض المستخدمين":
-            send_message(
-                chat_id,
-                "وظيفة عرض المستخدمين سنبرمجها بعد إنهاء الإضافة."
-            )
-
-        if text == "عرض المستخدمين":
             users = get_all_users()
 
             if not users:
