@@ -294,7 +294,34 @@ def webhook():
         )
 
         return "OK", 200
+if text == "إدارة المستخدمين":
+        user = logged_users.get(chat_id)
 
+        if not user:
+            show_welcome(chat_id)
+            return "OK", 200
+
+        role = str(user.get("role", "")).strip().upper()
+
+        if role != "CREATOR":
+            send_message(
+                chat_id,
+                "ليس لديك صلاحية لإدارة المستخدمين."
+            )
+            return "OK", 200
+
+        send_message(
+            chat_id,
+            "إدارة المستخدمين",
+            [
+                ["إضافة مستخدم"],
+                ["عرض المستخدمين"],
+                ["تفعيل/تعطيل مستخدم"],
+                ["القائمة الرئيسية"]
+            ]
+        )
+
+        return "OK", 200
 
     if chat_id not in logged_users:
         show_welcome(chat_id)
