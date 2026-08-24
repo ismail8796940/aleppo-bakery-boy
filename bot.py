@@ -835,12 +835,41 @@ def webhook():
                 "وظيفة عرض المستخدمين سنبرمجها بعد إنهاء الإضافة."
             )
 
-            return "OK", 200
+        if text == "عرض المستخدمين":
+            users = get_all_users()
 
-        if text == "تفعيل/تعطيل مستخدم":
+            if not users:
+                send_message(
+                    chat_id,
+                    "لا يوجد مستخدمون مسجلون."
+                )
+                return "OK", 200
+
+            lines = ["المستخدمون المسجلون:\n"]
+
+            for item in users:
+                user_id = str(item.get("userId", ""))
+                username = str(item.get("username", ""))
+                full_name = str(item.get("fullName", ""))
+                role = role_arabic(item.get("role", ""))
+                status = str(item.get("status", "")).upper()
+
+                status_ar = (
+                    "فعال"
+                    if status == "ACTIVE"
+                    else "غير فعال"
+                )
+
+                lines.append(
+                    f"{user_id} - {full_name}\n"
+                    f"اسم المستخدم: {username}\n"
+                    f"الصلاحية: {role}\n"
+                    f"الحالة: {status_ar}\n"
+                )
+
             send_message(
                 chat_id,
-                "وظيفة تفعيل وتعطيل المستخدم سنبرمجها بعد إنهاء الإضافة."
+                "\n".join(lines)
             )
 
             return "OK", 200
