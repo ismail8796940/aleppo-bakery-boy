@@ -294,7 +294,7 @@ def webhook():
         )
 
         return "OK", 200
-        if text == "إدارة المستخدمين":
+    if text == "إدارة المستخدمين":
         user = logged_users.get(chat_id)
 
         if not user:
