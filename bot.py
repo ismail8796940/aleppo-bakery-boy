@@ -58,7 +58,7 @@ def get_user_by_username(username):
                 "action": "getUserByUsername",
                 "username": username
             },
-            timeout=20
+            timeout=60
         )
 
         print("Apps Script status:", response.status_code)
