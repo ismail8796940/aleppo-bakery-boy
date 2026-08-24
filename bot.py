@@ -15,7 +15,7 @@ pending_username = {}
 logged_users = {}
 user_creation_state = {}
 new_user_data = {}
-
+user_status_state = {}
 
 def send_message(chat_id, text, keyboard=None, remove_keyboard=False):
     payload = {
@@ -123,7 +123,31 @@ def get_all_users():
             repr(error)
         )
         return []
+def set_user_status(username, status):
+    try:
+        response = requests.post(
+            APPS_SCRIPT_URL,
+            json={
+                "secret": API_SECRET,
+                "action": "setUserStatus",
+                "username": username,
+                "status": status
+            },
+            timeout=60
+        )
 
+        return response.json()
+
+    except Exception as error:
+        print(
+            "Apps Script status error:",
+            repr(error)
+        )
+
+        return {
+            "ok": False,
+            "error": "CONNECTION_ERROR"
+        }
 def hash_password(password):
     return hashlib.sha256(
         password.encode("utf-8")
@@ -890,7 +914,19 @@ def webhook():
             )
 
             return "OK", 200
+        if text == "تفعيل/تعطيل مستخدم":
+            user_status_state[chat_id] = "WAITING_USERNAME"
 
+            send_message(
+                chat_id,
+                "أدخل اسم المستخدم الذي تريد تفعيل أو تعطيل حسابه:",
+                [
+                    ["إلغاء"],
+                    ["القائمة الرئيسية"]
+                ]
+            )
+
+            return "OK", 200
         if text == "إدارة الأفران":
             send_message(
                 chat_id,
