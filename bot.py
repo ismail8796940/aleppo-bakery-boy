@@ -113,27 +113,41 @@ def show_welcome(chat_id):
 
 def show_main_menu(chat_id, user):
     full_name = user.get("fullName", "")
-    role = role_arabic(user.get("role", ""))
+    role = str(user.get("role", "")).strip().upper()
+    role_name = role_arabic(role)
     bakery_id = user.get("bakeryId", "")
 
     text = (
         "تم تسجيل الدخول بنجاح\n\n"
         f"الاسم: {full_name}\n"
-        f"الصلاحية: {role}"
+        f"الصلاحية: {role_name}"
     )
 
     if bakery_id:
         text += f"\nرقم الفرن: {bakery_id}"
 
-    send_message(
-        chat_id,
-        text,
-        [
+    if role == "CREATOR":
+        keyboard = [
+            ["إدارة المستخدمين"],
+            ["إدارة الأفران"],
+            ["الحسميات", "الأعطال"],
+            ["التقارير"],
+            ["إعدادات النظام"],
+            ["مسح البيانات"],
+            ["تسجيل الخروج"]
+        ]
+
+    else:
+        keyboard = [
             ["القائمة الرئيسية"],
             ["تسجيل الخروج"]
         ]
-    )
 
+    send_message(
+        chat_id,
+        text,
+        keyboard
+    )
 
 @app.route("/", methods=["GET"])
 def home():
