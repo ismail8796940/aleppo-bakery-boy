@@ -974,7 +974,62 @@ def webhook():
             )
 
             return "OK", 200
+status_state = user_status_state.get(chat_id)
 
+        if status_state == "WAITING_USERNAME":
+            if text == "إلغاء":
+                user_status_state.pop(chat_id, None)
+
+                show_users_menu(chat_id)
+                return "OK", 200
+
+            target_user = get_user_by_username(text)
+
+            if not target_user:
+                send_message(
+                    chat_id,
+                    "اسم المستخدم غير موجود.\n"
+                    "أدخل اسم المستخدم من جديد:"
+                )
+                return "OK", 200
+
+            current_status = str(
+                target_user.get("status", "")
+            ).strip().upper()
+
+            if current_status == "ACTIVE":
+                new_status = "INACTIVE"
+            else:
+                new_status = "ACTIVE"
+
+            result = set_user_status(
+                target_user.get("username"),
+                new_status
+            )
+
+            if not result.get("ok"):
+                send_message(
+                    chat_id,
+                    "تعذر تعديل حالة المستخدم."
+                )
+                return "OK", 200
+
+            user_status_state.pop(chat_id, None)
+
+            if new_status == "ACTIVE":
+                new_status_ar = "فعال"
+            else:
+                new_status_ar = "غير فعال"
+
+            send_message(
+                chat_id,
+                "تم تعديل حالة المستخدم بنجاح.\n\n"
+                f"اسم المستخدم: {target_user.get('username')}\n"
+                f"الحالة الجديدة: {new_status_ar}"
+            )
+
+            show_users_menu(chat_id)
+            return "OK", 200
         send_message(
             chat_id,
             "هذا الخيار غير مضاف بعد."
@@ -989,9 +1044,64 @@ def webhook():
         )
 
         return "OK", 200
+    status_state = user_status_state.get(chat_id)
 
+        if status_state == "WAITING_USERNAME":
+            if text == "إلغاء":
+                user_status_state.pop(chat_id, None)
 
-if __name__ == "__main__":
+                show_users_menu(chat_id)
+                return "OK", 200
+
+            target_user = get_user_by_username(text)
+
+            if not target_user:
+                send_message(
+                    chat_id,
+                    "اسم المستخدم غير موجود.\n"
+                    "أدخل اسم المستخدم من جديد:"
+                )
+                return "OK", 200
+
+            current_status = str(
+                target_user.get("status", "")
+            ).strip().upper()
+
+            if current_status == "ACTIVE":
+                new_status = "INACTIVE"
+            else:
+                new_status = "ACTIVE"
+
+            result = set_user_status(
+                target_user.get("username"),
+                new_status
+            )
+
+            if not result.get("ok"):
+                send_message(
+                    chat_id,
+                    "تعذر تعديل حالة المستخدم."
+                )
+                return "OK", 200
+
+            user_status_state.pop(chat_id, None)
+
+            if new_status == "ACTIVE":
+                new_status_ar = "فعال"
+            else:
+                new_status_ar = "غير فعال"
+
+            send_message(
+                chat_id,
+                "تم تعديل حالة المستخدم بنجاح.\n\n"
+                f"اسم المستخدم: {target_user.get('username')}\n"
+                f"الحالة الجديدة: {new_status_ar}"
+            )
+
+            show_users_menu(chat_id)
+            return "OK", 200
+
+     if __name__ == "__main__":
     port = int(
         os.environ.get(
             "PORT",
