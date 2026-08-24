@@ -47,6 +47,10 @@ def send_message(chat_id, text, keyboard=None, remove_keyboard=False):
 
 def get_user_by_username(username):
     try:
+        print("Looking for username:", username)
+        print("Apps Script URL exists:", bool(APPS_SCRIPT_URL))
+        print("API secret exists:", bool(API_SECRET))
+
         response = requests.get(
             APPS_SCRIPT_URL,
             params={
@@ -56,6 +60,9 @@ def get_user_by_username(username):
             },
             timeout=20
         )
+
+        print("Apps Script status:", response.status_code)
+        print("Apps Script response:", response.text)
 
         data = response.json()
 
@@ -68,7 +75,7 @@ def get_user_by_username(username):
         return data.get("user")
 
     except Exception as error:
-        print("Apps Script error:", error)
+        print("Apps Script error:", repr(error))
         return None
 
 
