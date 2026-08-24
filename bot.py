@@ -99,7 +99,30 @@ def add_user_to_sheet(user_data):
             "ok": False,
             "error": "CONNECTION_ERROR"
         }
+def get_all_users():
+    try:
+        response = requests.get(
+            APPS_SCRIPT_URL,
+            params={
+                "secret": API_SECRET,
+                "action": "listUsers"
+            },
+            timeout=60
+        )
 
+        data = response.json()
+
+        if not data.get("ok"):
+            return []
+
+        return data.get("users", [])
+
+    except Exception as error:
+        print(
+            "Apps Script list users error:",
+            repr(error)
+        )
+        return []
 
 def hash_password(password):
     return hashlib.sha256(
