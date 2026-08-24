@@ -47,10 +47,6 @@ def send_message(chat_id, text, keyboard=None, remove_keyboard=False):
 
 def get_user_by_username(username):
     try:
-        print("Looking for username:", username)
-        print("Apps Script URL exists:", bool(APPS_SCRIPT_URL))
-        print("API secret exists:", bool(API_SECRET))
-
         response = requests.get(
             APPS_SCRIPT_URL,
             params={
@@ -60,9 +56,6 @@ def get_user_by_username(username):
             },
             timeout=60
         )
-
-        print("Apps Script status:", response.status_code)
-        print("Apps Script response:", response.text)
 
         data = response.json()
 
@@ -104,7 +97,8 @@ def role_arabic(role):
 def show_welcome(chat_id):
     send_message(
         chat_id,
-        "أهلاً بك في نظام إدارة الأفران\n\nيرجى تسجيل الدخول للمتابعة.",
+        "أهلاً بك في نظام إدارة الأفران\n\n"
+        "يرجى تسجيل الدخول للمتابعة.",
         [
             ["تسجيل الدخول"]
         ]
@@ -149,6 +143,20 @@ def show_main_menu(chat_id, user):
         keyboard
     )
 
+
+def show_users_menu(chat_id):
+    send_message(
+        chat_id,
+        "إدارة المستخدمين",
+        [
+            ["إضافة مستخدم"],
+            ["عرض المستخدمين"],
+            ["تفعيل/تعطيل مستخدم"],
+            ["القائمة الرئيسية"]
+        ]
+    )
+
+
 @app.route("/", methods=["GET"])
 def home():
     return "Bakery Management Bot is running", 200
@@ -169,29 +177,8 @@ def webhook():
     chat_id = str(message["chat"]["id"])
     text = str(message.get("text", "")).strip()
 
-
+    # البداية
     if text == "/start":
-        login_state.pop(chat_id, None)
-        pending_username.pop(chat_id, None)
-
-        show_welcome(chat_id)
-
-        return "OK", 200
-
-
-    if text == "تسجيل الدخول":
-        login_state[chat_id] = "WAITING_USERNAME"
-
-        send_message(
-            chat_id,
-            "أدخل اسم المستخدم:",
-            remove_keyboard=True
-        )
-
-        return "OK", 200
-
-
-    if text == "تسجيل الخروج":
         login_state.pop(chat_id, None)
         pending_username.pop(chat_id, None)
         logged_users.pop(chat_id, None)
@@ -200,156 +187,15 @@ def webhook():
 
         return "OK", 200
 
-
-    state = login_state.get(chat_id)
-
-
-    if state == "WAITING_USERNAME":
-        user = get_user_by_username(text)
-
-        if not user:
-            send_message(
-                chat_id,
-                "اسم المستخدم غير موجود.\nأدخل اسم المستخدم من جديد:"
-            )
-
-            return "OK", 200
-
-        status = str(
-            user.get("status", "")
-        ).strip().upper()
-
-        if status != "ACTIVE":
-            login_state.pop(chat_id, None)
-
-            send_message(
-                chat_id,
-                "هذا الحساب غير فعال. يرجى مراجعة إدارة النظام."
-            )
-
-            return "OK", 200
-
-        pending_username[chat_id] = user.get("username")
-
-        login_state[chat_id] = "WAITING_PASSWORD"
-
-        send_message(
-            chat_id,
-            "أدخل كلمة المرور:"
-        )
-
-        return "OK", 200
-
-
-    if state == "WAITING_PASSWORD":
-        username = pending_username.get(chat_id)
-
-        user = get_user_by_username(username)
-
-        if not user:
-            login_state.pop(chat_id, None)
-            pending_username.pop(chat_id, None)
-
-            show_welcome(chat_id)
-
-            return "OK", 200
-
-        entered_hash = hash_password(text)
-
-        stored_hash = str(
-            user.get("passwordHash", "")
-        ).strip()
-
-        if entered_hash != stored_hash:
-            send_message(
-                chat_id,
-                "كلمة المرور غير صحيحة.\nأدخل كلمة المرور من جديد:"
-            )
-
-            return "OK", 200
-
-        logged_users[chat_id] = user
-
-        login_state.pop(chat_id, None)
+    # تسجيل الدخول
+    if text == "تسجيل الدخول":
+        login_state[chat_id] = "WAITING_USERNAME"
         pending_username.pop(chat_id, None)
 
-        show_main_menu(
-            chat_id,
-            user
-        )
-
-        return "OK", 200
-
-
-    if text == "القائمة الرئيسية":
-        user = logged_users.get(chat_id)
-
-        if not user:
-            show_welcome(chat_id)
-            return "OK", 200
-
-        show_main_menu(
-            chat_id,
-            user
-        )
-
-        return "OK", 200
-    if text == "إدارة المستخدمين":
-        user = logged_users.get(chat_id)
-
-        if not user:
-            show_welcome(chat_id)
-            return "OK", 200
-
-        role = str(user.get("role", "")).strip().upper()
-
-        if role != "CREATOR":
-            send_message(
-                chat_id,
-                "ليس لديك صلاحية لإدارة المستخدمين."
-            )
-            return "OK", 200
-
         send_message(
             chat_id,
-            "إدارة المستخدمين",
-            [
-                ["إضافة مستخدم"],
-                ["عرض المستخدمين"],
-                ["تفعيل/تعطيل مستخدم"],
-                ["القائمة الرئيسية"]
-            ]
+            "أدخل اسم المستخدم:",
+            remove_keyboard=True
         )
 
         return "OK", 200
-
-    if chat_id not in logged_users:
-        show_welcome(chat_id)
-
-        return "OK", 200
-
-
-    send_message(
-        chat_id,
-        "هذا الخيار غير مضاف بعد.",
-        [
-            ["القائمة الرئيسية"],
-            ["تسجيل الخروج"]
-        ]
-    )
-
-    return "OK", 200
-
-
-if __name__ == "__main__":
-    port = int(
-        os.environ.get(
-            "PORT",
-            10000
-        )
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
