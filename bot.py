@@ -974,7 +974,7 @@ def webhook():
             )
 
             return "OK", 200
-status_state = user_status_state.get(chat_id)
+        status_state = user_status_state.get(chat_id)
 
         if status_state == "WAITING_USERNAME":
             if text == "إلغاء":
