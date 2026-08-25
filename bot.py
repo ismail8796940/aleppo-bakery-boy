@@ -8,14 +8,18 @@ app = Flask(__name__)
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL")
 API_SECRET = os.environ.get("API_SECRET")
+
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 login_state = {}
 pending_username = {}
 logged_users = {}
+
 user_creation_state = {}
 new_user_data = {}
+
 user_status_state = {}
+
 
 def send_message(chat_id, text, keyboard=None, remove_keyboard=False):
     payload = {
@@ -41,10 +45,17 @@ def send_message(chat_id, text, keyboard=None, remove_keyboard=False):
             json=payload,
             timeout=20
         )
-        print("Telegram send status:", response.status_code)
+
+        print(
+            "Telegram send status:",
+            response.status_code
+        )
 
     except Exception as error:
-        print("Telegram send error:", repr(error))
+        print(
+            "Telegram send error:",
+            repr(error)
+        )
 
 
 def get_user_by_username(username):
@@ -70,8 +81,42 @@ def get_user_by_username(username):
         return data.get("user")
 
     except Exception as error:
-        print("Apps Script get user error:", repr(error))
+        print(
+            "Apps Script get user error:",
+            repr(error)
+        )
+
         return None
+
+
+def get_all_users():
+    try:
+        response = requests.get(
+            APPS_SCRIPT_URL,
+            params={
+                "secret": API_SECRET,
+                "action": "listUsers"
+            },
+            timeout=60
+        )
+
+        data = response.json()
+
+        if not data.get("ok"):
+            return []
+
+        return data.get(
+            "users",
+            []
+        )
+
+    except Exception as error:
+        print(
+            "Apps Script list users error:",
+            repr(error)
+        )
+
+        return []
 
 
 def add_user_to_sheet(user_data):
@@ -93,36 +138,17 @@ def add_user_to_sheet(user_data):
         return response.json()
 
     except Exception as error:
-        print("Apps Script add user error:", repr(error))
+        print(
+            "Apps Script add user error:",
+            repr(error)
+        )
 
         return {
             "ok": False,
             "error": "CONNECTION_ERROR"
         }
-def get_all_users():
-    try:
-        response = requests.get(
-            APPS_SCRIPT_URL,
-            params={
-                "secret": API_SECRET,
-                "action": "listUsers"
-            },
-            timeout=60
-        )
 
-        data = response.json()
 
-        if not data.get("ok"):
-            return []
-
-        return data.get("users", [])
-
-    except Exception as error:
-        print(
-            "Apps Script list users error:",
-            repr(error)
-        )
-        return []
 def set_user_status(username, status):
     try:
         response = requests.post(
@@ -148,6 +174,8 @@ def set_user_status(username, status):
             "ok": False,
             "error": "CONNECTION_ERROR"
         }
+
+
 def hash_password(password):
     return hashlib.sha256(
         password.encode("utf-8")
@@ -165,8 +193,14 @@ def role_arabic(role):
         "ASSOCIATION": "الجمعية"
     }
 
-    key = str(role or "").strip().upper()
-    return roles.get(key, role)
+    key = str(
+        role or ""
+    ).strip().upper()
+
+    return roles.get(
+        key,
+        role
+    )
 
 
 def role_from_arabic(text):
@@ -188,7 +222,8 @@ def role_from_arabic(text):
 def show_welcome(chat_id):
     send_message(
         chat_id,
-        "أهلاً بك في نظام إدارة الأفران\n\nيرجى تسجيل الدخول للمتابعة.",
+        "أهلاً بك في نظام إدارة الأفران\n\n"
+        "يرجى تسجيل الدخول للمتابعة.",
         [
             ["تسجيل الدخول"]
         ]
@@ -197,17 +232,28 @@ def show_welcome(chat_id):
 
 def show_main_menu(chat_id, user):
     full_name = str(
-        user.get("fullName", "")
+        user.get(
+            "fullName",
+            ""
+        )
     )
 
     role = str(
-        user.get("role", "")
+        user.get(
+            "role",
+            ""
+        )
     ).strip().upper()
 
-    role_name = role_arabic(role)
+    role_name = role_arabic(
+        role
+    )
 
     bakery_id = str(
-        user.get("bakeryId", "")
+        user.get(
+            "bakeryId",
+            ""
+        )
     ).strip()
 
     text = (
@@ -217,7 +263,9 @@ def show_main_menu(chat_id, user):
     )
 
     if bakery_id:
-        text += f"\nرقم الفرن: {bakery_id}"
+        text += (
+            f"\nرقم الفرن: {bakery_id}"
+        )
 
     if role == "CREATOR":
         keyboard = [
@@ -305,7 +353,9 @@ def send_creation_confirmation(chat_id):
     )
 
     if bakery_id:
-        text += f"\nرقم الفرن: {bakery_id}"
+        text += (
+            f"\nرقم الفرن: {bakery_id}"
+        )
 
     send_message(
         chat_id,
@@ -360,7 +410,8 @@ def continue_user_creation(chat_id, text):
         if existing:
             send_message(
                 chat_id,
-                "اسم المستخدم مستخدم مسبقاً.\nأدخل اسماً آخر:"
+                "اسم المستخدم مستخدم مسبقاً.\n"
+                "أدخل اسماً آخر:"
             )
 
             return True
@@ -387,7 +438,8 @@ def continue_user_creation(chat_id, text):
         if len(text) < 4:
             send_message(
                 chat_id,
-                "كلمة المرور يجب أن تكون 4 محارف على الأقل.\n"
+                "كلمة المرور يجب أن تكون "
+                "4 محارف على الأقل.\n"
                 "أدخل كلمة مرور جديدة:"
             )
 
@@ -506,7 +558,8 @@ def continue_user_creation(chat_id, text):
 
             send_message(
                 chat_id,
-                f"تمت إضافة المستخدم بنجاح.\nرقم المستخدم: {user_id}"
+                "تمت إضافة المستخدم بنجاح.\n"
+                f"رقم المستخدم: {user_id}"
             )
 
             show_users_menu(
@@ -542,9 +595,81 @@ def continue_user_creation(chat_id, text):
     return False
 
 
+def show_all_users(chat_id):
+    users = get_all_users()
+
+    if not users:
+        send_message(
+            chat_id,
+            "لا يوجد مستخدمون مسجلون."
+        )
+
+        return
+
+    lines = [
+        "المستخدمون المسجلون:\n"
+    ]
+
+    for item in users:
+        user_id = str(
+            item.get(
+                "userId",
+                ""
+            )
+        )
+
+        username = str(
+            item.get(
+                "username",
+                ""
+            )
+        )
+
+        full_name = str(
+            item.get(
+                "fullName",
+                ""
+            )
+        )
+
+        role = role_arabic(
+            item.get(
+                "role",
+                ""
+            )
+        )
+
+        status = str(
+            item.get(
+                "status",
+                ""
+            )
+        ).upper()
+
+        if status == "ACTIVE":
+            status_ar = "فعال"
+        else:
+            status_ar = "غير فعال"
+
+        lines.append(
+            f"{user_id} - {full_name}\n"
+            f"اسم المستخدم: {username}\n"
+            f"الصلاحية: {role}\n"
+            f"الحالة: {status_ar}\n"
+        )
+
+    send_message(
+        chat_id,
+        "\n".join(lines)
+    )
+
+
 @app.route("/", methods=["GET"])
 def home():
-    return "Bakery Management Bot is running", 200
+    return (
+        "Bakery Management Bot is running",
+        200
+    )
 
 
 @app.route("/webhook", methods=["POST"])
@@ -584,6 +709,7 @@ def webhook():
         if not chat_id or not text:
             return "OK", 200
 
+        # START
         if text == "/start":
             login_state.pop(
                 chat_id,
@@ -604,12 +730,18 @@ def webhook():
                 chat_id
             )
 
+            user_status_state.pop(
+                chat_id,
+                None
+            )
+
             show_welcome(
                 chat_id
             )
 
             return "OK", 200
 
+        # LOGIN BUTTON
         if text == "تسجيل الدخول":
             login_state[
                 chat_id
@@ -628,6 +760,7 @@ def webhook():
 
             return "OK", 200
 
+        # LOGOUT
         if text == "تسجيل الخروج":
             login_state.pop(
                 chat_id,
@@ -648,6 +781,11 @@ def webhook():
                 chat_id
             )
 
+            user_status_state.pop(
+                chat_id,
+                None
+            )
+
             show_welcome(
                 chat_id
             )
@@ -658,6 +796,7 @@ def webhook():
             chat_id
         )
 
+        # LOGIN USERNAME
         if login_status == "WAITING_USERNAME":
             user = get_user_by_username(
                 text
@@ -692,7 +831,8 @@ def webhook():
 
                 send_message(
                     chat_id,
-                    "هذا الحساب غير فعال. يرجى مراجعة إدارة النظام."
+                    "هذا الحساب غير فعال. "
+                    "يرجى مراجعة إدارة النظام."
                 )
 
                 return "OK", 200
@@ -714,6 +854,7 @@ def webhook():
 
             return "OK", 200
 
+        # LOGIN PASSWORD
         if login_status == "WAITING_PASSWORD":
             username = pending_username.get(
                 chat_id
@@ -809,6 +950,7 @@ def webhook():
 
             return "OK", 200
 
+        # USER CREATION STATE
         if user_creation_state.get(
             chat_id
         ):
@@ -820,241 +962,43 @@ def webhook():
             if handled:
                 return "OK", 200
 
-        if text == "القائمة الرئيسية":
-            cancel_user_creation(
-                chat_id
-            )
-
-            show_main_menu(
-                chat_id,
-                user
-            )
-
-            return "OK", 200
-
-        if text == "إدارة المستخدمين":
-            role = str(
-                user.get(
-                    "role",
-                    ""
-                )
-            ).strip().upper()
-
-            if role != "CREATOR":
-                send_message(
-                    chat_id,
-                    "ليس لديك صلاحية لإدارة المستخدمين."
-                )
-
-                return "OK", 200
-
-            show_users_menu(
-                chat_id
-            )
-
-            return "OK", 200
-
-        if text == "إضافة مستخدم":
-            role = str(
-                user.get(
-                    "role",
-                    ""
-                )
-            ).strip().upper()
-
-            if role != "CREATOR":
-                send_message(
-                    chat_id,
-                    "ليس لديك صلاحية لإضافة مستخدم."
-                )
-
-                return "OK", 200
-
-            start_user_creation(
-                chat_id
-            )
-
-            return "OK", 200
-
-        if text == "عرض المستخدمين":
-            users = get_all_users()
-
-            if not users:
-                send_message(
-                    chat_id,
-                    "لا يوجد مستخدمون مسجلون."
-                )
-                return "OK", 200
-
-            lines = ["المستخدمون المسجلون:\n"]
-
-            for item in users:
-                user_id = str(item.get("userId", ""))
-                username = str(item.get("username", ""))
-                full_name = str(item.get("fullName", ""))
-                role = role_arabic(item.get("role", ""))
-                status = str(item.get("status", "")).upper()
-
-                status_ar = (
-                    "فعال"
-                    if status == "ACTIVE"
-                    else "غير فعال"
-                )
-
-                lines.append(
-                    f"{user_id} - {full_name}\n"
-                    f"اسم المستخدم: {username}\n"
-                    f"الصلاحية: {role}\n"
-                    f"الحالة: {status_ar}\n"
-                )
-
-            send_message(
-                chat_id,
-                "\n".join(lines)
-            )
-
-            return "OK", 200
-        if text == "تفعيل/تعطيل مستخدم":
-            user_status_state[chat_id] = "WAITING_USERNAME"
-
-            send_message(
-                chat_id,
-                "أدخل اسم المستخدم الذي تريد تفعيل أو تعطيل حسابه:",
-                [
-                    ["إلغاء"],
-                    ["القائمة الرئيسية"]
-                ]
-            )
-
-            return "OK", 200
-        if text == "إدارة الأفران":
-            send_message(
-                chat_id,
-                "إدارة الأفران قيد الإعداد."
-            )
-
-            return "OK", 200
-
-        if text == "الحسميات":
-            send_message(
-                chat_id,
-                "نظام الحسميات قيد الإعداد."
-            )
-
-            return "OK", 200
-
-        if text == "الأعطال":
-            send_message(
-                chat_id,
-                "نظام الأعطال قيد الإعداد."
-            )
-
-            return "OK", 200
-
-        if text == "التقارير":
-            send_message(
-                chat_id,
-                "نظام التقارير قيد الإعداد."
-            )
-
-            return "OK", 200
-
-        if text == "إعدادات النظام":
-            send_message(
-                chat_id,
-                "إعدادات النظام قيد الإعداد."
-            )
-
-            return "OK", 200
-
-        if text == "مسح البيانات":
-            send_message(
-                chat_id,
-                "مسح البيانات غير مفعّل بعد وسيتم حمايته بتأكيد مزدوج."
-            )
-
-            return "OK", 200
-        status_state = user_status_state.get(chat_id)
+        # USER STATUS STATE
+        status_state = user_status_state.get(
+            chat_id
+        )
 
         if status_state == "WAITING_USERNAME":
             if text == "إلغاء":
-                user_status_state.pop(chat_id, None)
+                user_status_state.pop(
+                    chat_id,
+                    None
+                )
 
-                show_users_menu(chat_id)
+                show_users_menu(
+                    chat_id
+                )
+
                 return "OK", 200
 
-            target_user = get_user_by_username(text)
+            if text == "القائمة الرئيسية":
+                user_status_state.pop(
+                    chat_id,
+                    None
+                )
+
+                show_main_menu(
+                    chat_id,
+                    user
+                )
+
+                return "OK", 200
+
+            target_user = get_user_by_username(
+                text
+            )
 
             if not target_user:
                 send_message(
                     chat_id,
                     "اسم المستخدم غير موجود.\n"
-                    "أدخل اسم المستخدم من جديد:"
-                )
-                return "OK", 200
-
-            current_status = str(
-                target_user.get("status", "")
-            ).strip().upper()
-
-            if current_status == "ACTIVE":
-                new_status = "INACTIVE"
-            else:
-                new_status = "ACTIVE"
-
-            result = set_user_status(
-                target_user.get("username"),
-                new_status
-            )
-
-            if not result.get("ok"):
-                send_message(
-                    chat_id,
-                    "تعذر تعديل حالة المستخدم."
-                )
-                return "OK", 200
-
-            user_status_state.pop(chat_id, None)
-
-            if new_status == "ACTIVE":
-                new_status_ar = "فعال"
-            else:
-                new_status_ar = "غير فعال"
-
-            send_message(
-                chat_id,
-                "تم تعديل حالة المستخدم بنجاح.\n\n"
-                f"اسم المستخدم: {target_user.get('username')}\n"
-                f"الحالة الجديدة: {new_status_ar}"
-            )
-
-            show_users_menu(chat_id)
-            return "OK", 200
-        send_message(
-            chat_id,
-            "هذا الخيار غير مضاف بعد."
-        )
-
-        return "OK", 200
-
-    except Exception as error:
-        print(
-            "WEBHOOK ERROR:",
-            repr(error)
-        )
-
-        return "OK", 200
-  
-
-     if __name__ == "__main__":
-    port = int(
-        os.environ.get(
-            "PORT",
-            10000
-        )
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
+                    "أدخل اسم
