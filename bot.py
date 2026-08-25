@@ -1044,7 +1044,7 @@ def webhook():
             )
 
             return "OK", 200
-            if text == "القائمة الرئيسية":
+        if text == "القائمة الرئيسية":
             cancel_user_creation(
                 chat_id
             )
